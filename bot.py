@@ -4,7 +4,7 @@ import logging
 import asyncio
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
 import database
 
@@ -69,7 +69,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
     campaign_source = args[0] if args and len(args) > 0 else "direto"
 
-    logger.info(f"Novo lead registrado: {user.id} ({user.first_name}) via campanha: {campaign_source}")
+    logger.info(f"🚀 Comando /start recebido de {user.id} ({user.first_name}) via campanha: {campaign_source}")
 
     # Salvar lead no banco de dados
     await database.save_or_update_lead(
@@ -83,6 +83,29 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Disparar o Passo 1 do Funil
     await send_funnel_step(user.id, 1, context, first_name=user.first_name)
 
+async def text_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    if not user:
+        return
+
+    text = update.message.text if update.message else ""
+    logger.info(f"💬 Mensagem de texto recebida de {user.id} ({user.first_name}): '{text}'")
+
+    # Salvar ou atualizar lead no banco de dados
+    await database.save_or_update_lead(
+        telegram_id=user.id,
+        first_name=user.first_name or "",
+        last_name=user.last_name or "",
+        username=user.username or "",
+        campaign_source="direto"
+    )
+
+    # Buscar o lead para saber em qual passo ele está ou enviar o passo 1 por padrão
+    lead = await database.get_lead_by_telegram_id(user.id)
+    current_step = lead.get("current_step", 1) if lead else 1
+
+    await send_funnel_step(user.id, current_step, context, first_name=user.first_name)
+
 async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -90,7 +113,7 @@ async def callback_query_handler(update: Update, context: ContextTypes.DEFAULT_T
     data = query.data
     user = update.effective_user
 
-    logger.info(f"Clique de botão do usuário {user.id}: {data}")
+    logger.info(f"👉 Clique de botão do usuário {user.id}: {data}")
 
     # Se a callback indicar o próximo passo (ex: next_step_2)
     if data.startswith("next_step_"):
@@ -123,7 +146,6 @@ async def send_broadcast_message(broadcast_id: int, message_text: str, filter_ca
             )
             sent_count += 1
             await database.update_broadcast(broadcast_id, sent_count, "sending")
-            # Respeitar limite de envio do Telegram (30 msgs/seg max)
             await asyncio.sleep(0.05)
         except Exception as e:
             logger.warning(f"Erro ao enviar broadcast para lead {lead['telegram_id']}: {e}")
@@ -140,6 +162,7 @@ def create_bot_application(token: str) -> Application:
     app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CallbackQueryHandler(callback_query_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_message_handler))
 
     bot_app = app
     return app
