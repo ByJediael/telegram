@@ -37,8 +37,7 @@ async def init_db():
                 current_step INTEGER DEFAULT 1,
                 status TEXT DEFAULT 'active',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(telegram_id, bot_id)
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -53,8 +52,7 @@ async def init_db():
                 media_url TEXT DEFAULT '',
                 delay_seconds INTEGER DEFAULT 0,
                 buttons_json TEXT DEFAULT '[]',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(bot_id, step_number)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -75,26 +73,24 @@ async def init_db():
 
         await db.commit()
 
-        # Se houver token legado no arquivo .env, migrar para a tabela de bots
-        load_token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-        if load_token and load_token != "SEU_TOKEN_AQUI_DO_BOTFATHER":
-            async with db.execute("SELECT COUNT(*) as count FROM bots WHERE token = ?", (load_token,)) as cursor:
-                row = await cursor.fetchone()
-                if row and row["count"] == 0:
-                    import urllib.request
-                    try:
-                        url = f"https://api.telegram.org/bot{load_token}/getMe"
-                        req = urllib.request.urlopen(url, timeout=3)
-                        res = json.loads(req.read().decode())
-                        if res.get("ok"):
-                            bot_res = res.get("result")
-                            await db.execute(
-                                "INSERT INTO bots (token, name, username, status) VALUES (?, ?, ?, 'active')",
-                                (load_token, bot_res.get("first_name", "Bot Telegram"), bot_res.get("username", ""))
-                            )
-                            await db.commit()
-                    except Exception:
-                        pass
+        # Auto-migrações de colunas para tabelas legadas
+        try:
+            await db.execute("ALTER TABLE leads ADD COLUMN bot_id INTEGER DEFAULT 1")
+            await db.commit()
+        except Exception:
+            pass
+
+        try:
+            await db.execute("ALTER TABLE funnel_steps ADD COLUMN bot_id INTEGER DEFAULT 0")
+            await db.commit()
+        except Exception:
+            pass
+
+        try:
+            await db.execute("ALTER TABLE broadcasts ADD COLUMN bot_id INTEGER DEFAULT 0")
+            await db.commit()
+        except Exception:
+            pass
 
         # Inserir funil inicial padrão (Global bot_id = 0) se a tabela estiver vazia
         async with db.execute("SELECT COUNT(*) as count FROM funnel_steps WHERE bot_id = 0") as cursor:
@@ -265,16 +261,12 @@ async def get_funnel_steps(bot_id: int = 0):
     async with get_db() as db:
         db.row_factory = aiosqlite.Row
         
-        # Verificar se existem passos específicos para este bot
+        target_bot_id = 0
         if bot_id and int(bot_id) > 0:
             async with db.execute("SELECT COUNT(*) as count FROM funnel_steps WHERE bot_id = ?", (int(bot_id),)) as cursor:
                 count = (await cursor.fetchone())["count"]
                 if count > 0:
                     target_bot_id = int(bot_id)
-                else:
-                    target_bot_id = 0 # Usar funil global padrão
-        else:
-            target_bot_id = 0
 
         async with db.execute("SELECT * FROM funnel_steps WHERE bot_id = ? ORDER BY step_number ASC", (target_bot_id,)) as cursor:
             rows = await cursor.fetchall()
