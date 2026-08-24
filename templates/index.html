@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TeleFlow - Automação de Funis & Leads no Telegram</title>
+    <title>TeleFlow - Automação Multi-Bot no Telegram</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,26 +19,30 @@
         <aside class="sidebar">
             <div class="brand">
                 <div class="logo-icon">
-                    <i class="fa-solid fa-paper-plane"></i>
+                    <i class="fa-solid fa-robot"></i>
                 </div>
                 <div class="brand-text">
                     <h2>TeleFlow</h2>
-                    <span>Funis & Leads Ads</span>
+                    <span>Painel Multi-Bot</span>
                 </div>
             </div>
 
-            <div class="bot-status-card" id="botStatusCard">
-                <div class="status-indicator yellow" id="statusDot"></div>
-                <div class="status-info">
-                    <span class="status-title" id="botStatusTitle">Verificando...</span>
-                    <span class="status-sub" id="botStatusSub">Token do Telegram</span>
-                </div>
+            <!-- Bot Filter Selector -->
+            <div class="bot-selector-box">
+                <label for="globalBotSelector"><i class="fa-solid fa-filter"></i> Contexto Ativo:</label>
+                <select id="globalBotSelector" class="custom-select">
+                    <option value="0">🌐 Todos os Bots</option>
+                </select>
             </div>
 
             <nav class="nav-menu">
                 <button class="nav-item active" data-tab="tab-dashboard" id="btn-tab-dashboard">
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="tab-my-bots" id="btn-tab-my-bots">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>Meus Bots</span>
                 </button>
                 <button class="nav-item" data-tab="tab-funnels" id="btn-tab-funnels">
                     <i class="fa-solid fa-diagram-project"></i>
@@ -53,13 +57,13 @@
                     <span>Base de Leads</span>
                 </button>
                 <button class="nav-item" data-tab="tab-settings" id="btn-tab-settings">
-                    <i class="fa-solid fa-sliders"></i>
-                    <span>Links & Configs</span>
+                    <i class="fa-solid fa-link"></i>
+                    <span>Gerador de Links</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
-                <p>TeleFlow v1.0 &bull; Python Engine</p>
+                <p>TeleFlow v2.0 &bull; Multi-Bot Engine</p>
             </div>
         </aside>
 
@@ -68,15 +72,15 @@
             <!-- Header Bar -->
             <header class="top-header">
                 <div class="page-title">
-                    <h1 id="headerTitle">Dashboard de Desempenho</h1>
-                    <p id="headerSub">Acompanhe seus leads de tráfego pago e automações em tempo real</p>
+                    <h1 id="headerTitle">Dashboard Multi-Bot</h1>
+                    <p id="headerSub">Gerencie a captura de leads e funis de todos os seus bots em um só lugar</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-secondary" id="btnRefreshData">
-                        <i class="fa-solid fa-rotate-right"></i> Atualizar Dados
+                        <i class="fa-solid fa-rotate-right"></i> Atualizar
                     </button>
-                    <button class="btn btn-primary" id="btnQuickBroadcast">
-                        <i class="fa-solid fa-paper-plane"></i> Novo Disparo
+                    <button class="btn btn-primary" id="btnQuickAddBot">
+                        <i class="fa-solid fa-plus"></i> Conectar Bot
                     </button>
                 </div>
             </header>
@@ -87,34 +91,34 @@
                 <div class="metrics-grid">
                     <div class="metric-card">
                         <div class="metric-icon purple">
-                            <i class="fa-solid fa-users-gear"></i>
+                            <i class="fa-solid fa-robot"></i>
                         </div>
                         <div class="metric-data">
-                            <span class="metric-label">Total de Leads</span>
-                            <h3 class="metric-value" id="valTotalLeads">0</h3>
-                            <span class="metric-change positive"><i class="fa-solid fa-arrow-trend-up"></i> Base de Clientes</span>
+                            <span class="metric-label">Bots Conectados</span>
+                            <h3 class="metric-value" id="valTotalBots">0</h3>
+                            <span class="metric-change positive"><i class="fa-solid fa-circle-check"></i> Bots Ativos</span>
                         </div>
                     </div>
 
                     <div class="metric-card">
                         <div class="metric-icon cyan">
-                            <i class="fa-solid fa-user-plus"></i>
+                            <i class="fa-solid fa-users-gear"></i>
                         </div>
                         <div class="metric-data">
-                            <span class="metric-label">Leads Capturados Hoje</span>
-                            <h3 class="metric-value" id="valLeadsToday">0</h3>
-                            <span class="metric-change neutral">Entradas de Hoje</span>
+                            <span class="metric-label">Total de Leads</span>
+                            <h3 class="metric-value" id="valTotalLeads">0</h3>
+                            <span class="metric-change positive">Base Consolidada</span>
                         </div>
                     </div>
 
                     <div class="metric-card">
                         <div class="metric-icon emerald">
-                            <i class="fa-solid fa-route"></i>
+                            <i class="fa-solid fa-user-plus"></i>
                         </div>
                         <div class="metric-data">
-                            <span class="metric-label">Passos do Funil</span>
-                            <h3 class="metric-value" id="valTotalSteps">0</h3>
-                            <span class="metric-change positive">Mensagens Ativas</span>
+                            <span class="metric-label">Leads Hoje</span>
+                            <h3 class="metric-value" id="valLeadsToday">0</h3>
+                            <span class="metric-change neutral">Entradas de Hoje</span>
                         </div>
                     </div>
 
@@ -140,39 +144,88 @@
                         </div>
                         <div class="campaign-list" id="campaignsContainer">
                             <div class="empty-state">
-                                <i class="fa-solid fa-spinner fa-spin"></i>
-                                <p>Carregando campanhas...</p>
+                                <p>Nenhuma campanha de tráfego registrada ainda.</p>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Quick Lead Stream -->
+                    <!-- Connected Bots Quick Overview -->
                     <div class="glass-panel">
                         <div class="panel-header">
-                            <h3><i class="fa-solid fa-clock-rotate-left"></i> Últimos Leads Capturados</h3>
-                            <button class="btn-text" id="btnGoToLeads">Ver Todos &rarr;</button>
+                            <h3><i class="fa-solid fa-robot"></i> Bots Conectados</h3>
+                            <button class="btn-text" id="btnGoToBots">Gerenciar Bots &rarr;</button>
                         </div>
-                        <div class="recent-leads-list" id="recentLeadsContainer">
+                        <div class="campaign-list" id="dashBotsContainer">
                             <div class="empty-state">
-                                <i class="fa-solid fa-users"></i>
-                                <p>Nenhum lead capturado ainda. Divulgue seu link de teste!</p>
+                                <p>Nenhum bot conectado.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- TAB 2: FUNIS DE VENDAS -->
+            <!-- TAB 2: MEUS BOTS -->
+            <section class="tab-content" id="tab-my-bots">
+                <div class="dashboard-grid">
+                    <!-- Connected Bots List -->
+                    <div class="glass-panel">
+                        <div class="panel-header">
+                            <div>
+                                <h3><i class="fa-solid fa-robot"></i> Bots Telegram Conectados</h3>
+                                <p class="panel-sub">Gerencie todos os seus bots rodando em paralelo</p>
+                            </div>
+                        </div>
+                        <div class="bots-grid-container" id="myBotsListContainer">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <p>Carregando bots...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Add Bot -->
+                    <div class="glass-panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-plus-circle"></i> Conectar Novo Bot</h3>
+                        </div>
+                        <form id="addBotForm" class="custom-form">
+                            <p class="panel-sub">Insira o Token gerado pelo <strong>@BotFather</strong> no Telegram.</p>
+
+                            <div class="form-group mt-3">
+                                <label for="newBotTokenInput">HTTP API Token do BotFather</label>
+                                <input type="text" id="newBotTokenInput" required placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+                            </div>
+
+                            <div class="button-group">
+                                <button type="button" class="btn btn-secondary" id="btnTestNewBotToken">
+                                    <i class="fa-solid fa-vial"></i> Testar Token
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="btnSaveNewBot">
+                                    <i class="fa-solid fa-bolt"></i> Conectar Bot Agora
+                                </button>
+                            </div>
+                            <div id="newBotTestResult" class="test-result-box mt-3"></div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: FUNIS DE VENDAS -->
             <section class="tab-content" id="tab-funnels">
                 <div class="glass-panel">
                     <div class="panel-header">
                         <div>
-                            <h3><i class="fa-solid fa-diagram-project"></i> Sequência de Mensagens do Funil</h3>
-                            <p class="panel-sub">Configure o fluxo automático que os leads receberão ao clicar no anúncio</p>
+                            <h3><i class="fa-solid fa-diagram-project"></i> Editor de Funil de Vendas</h3>
+                            <p class="panel-sub" id="funnelScopeSubtitle">Configurando: <strong>Funil Global Compartilhado</strong></p>
                         </div>
-                        <button class="btn btn-primary" id="btnAddStepModal">
-                            <i class="fa-solid fa-plus"></i> Novo Passo
-                        </button>
+                        <div class="header-actions">
+                            <select id="funnelScopeSelect" class="filter-select">
+                                <option value="0">🌐 Funil Global (Usado por todos os bots)</option>
+                            </select>
+                            <button class="btn btn-primary" id="btnAddStepModal">
+                                <i class="fa-solid fa-plus"></i> Novo Passo
+                            </button>
+                        </div>
                     </div>
 
                     <div class="funnel-steps-container" id="funnelStepsList">
@@ -181,7 +234,7 @@
                 </div>
             </section>
 
-            <!-- TAB 3: BROADCAST (DISPARO EM MASSA) -->
+            <!-- TAB 4: BROADCAST (DISPARO EM MASSA) -->
             <section class="tab-content" id="tab-broadcast">
                 <div class="dashboard-grid">
                     <!-- Form -->
@@ -191,25 +244,31 @@
                         </div>
                         <form id="broadcastForm" class="custom-form">
                             <div class="form-group">
-                                <label for="broadcastTitle">Título da Campanha (Uso Interno)</label>
-                                <input type="text" id="broadcastTitle" required placeholder="Ex: Promoção de Fim de Semana">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="broadcastFilter">Segmentação de Público</label>
-                                <select id="broadcastFilter">
-                                    <option value="all">🌐 Todos os Leads da Base</option>
+                                <label for="broadcastTargetBot">Disparar Através de Qual Bot?</label>
+                                <select id="broadcastTargetBot">
+                                    <option value="0">🌐 Todos os Bots Conectados</option>
                                 </select>
                             </div>
 
                             <div class="form-group">
-                                <label for="broadcastMessage">Mensagem do Disparo (Suporta Markdown)</label>
-                                <textarea id="broadcastMessage" rows="6" required placeholder="Digite sua mensagem de disparo aqui...&#10;&#10;Dica: Use {first_name} para personalizar com o nome do lead!"></textarea>
-                                <span class="form-hint">Suporta **negrito**, *itálico*, links e a tag `{first_name}`.</span>
+                                <label for="broadcastTitle">Título da Campanha (Uso Interno)</label>
+                                <input type="text" id="broadcastTitle" required placeholder="Ex: Promoção Exclusiva">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="broadcastFilter">Segmentação de Origem</label>
+                                <select id="broadcastFilter">
+                                    <option value="all">🌐 Todas as Origens / Campanhas</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="broadcastMessage">Mensagem do Disparo (Suporta Markdown e {first_name})</label>
+                                <textarea id="broadcastMessage" rows="6" required placeholder="Escreva a mensagem do disparo...&#10;&#10;Olá {first_name}! Temos um presente especial para você."></textarea>
                             </div>
 
                             <button type="submit" class="btn btn-primary btn-block" id="btnSubmitBroadcast">
-                                <i class="fa-solid fa-bolt"></i> Disparar para Leads Agora
+                                <i class="fa-solid fa-bolt"></i> Disparar em Massa
                             </button>
                         </form>
                     </div>
@@ -221,19 +280,22 @@
                         </div>
                         <div class="broadcast-history-list" id="broadcastHistoryContainer">
                             <div class="empty-state">
-                                <p>Nenhum disparo registrado até o momento.</p>
+                                <p>Nenhum disparo realizado até o momento.</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- TAB 4: BASE DE LEADS -->
+            <!-- TAB 5: BASE DE LEADS -->
             <section class="tab-content" id="tab-leads">
                 <div class="glass-panel">
                     <div class="panel-header">
                         <h3><i class="fa-solid fa-users"></i> Gerenciador de Leads Capturados</h3>
                         <div class="table-actions">
+                            <select id="leadBotFilter" class="filter-select">
+                                <option value="0">Todos os Bots</option>
+                            </select>
                             <input type="text" id="leadSearchInput" class="search-input" placeholder="Buscar por nome ou username...">
                             <select id="leadCampaignFilter" class="filter-select">
                                 <option value="all">Todas as Campanhas</option>
@@ -245,17 +307,18 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th>Bot Origem</th>
                                     <th>ID Telegram</th>
                                     <th>Nome do Lead</th>
                                     <th>Username</th>
-                                    <th>Origem / Campanha</th>
+                                    <th>Origem / Anúncio</th>
                                     <th>Passo no Funil</th>
                                     <th>Data de Entrada</th>
                                 </tr>
                             </thead>
                             <tbody id="leadsTableBody">
                                 <tr>
-                                    <td colspan="6" class="text-center py-4">Carregando leads...</td>
+                                    <td colspan="7" class="text-center py-4">Carregando leads...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -263,57 +326,36 @@
                 </div>
             </section>
 
-            <!-- TAB 5: LINKS & CONFIGURAÇÕES -->
+            <!-- TAB 6: GERADOR DE LINKS DE ANÚNCIO -->
             <section class="tab-content" id="tab-settings">
-                <div class="dashboard-grid">
-                    <!-- Deep Link Generator -->
-                    <div class="glass-panel">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-link"></i> Gerador de Links para Facebook Ads</h3>
-                        </div>
-                        <div class="custom-form">
-                            <p class="panel-sub">Crie links rastreáveis para usar nos seus botões de anúncio do Facebook/Instagram.</p>
-
-                            <div class="form-group mt-3">
-                                <label for="campaignInput">Nome da Campanha (sem espaços ou acentos)</label>
-                                <input type="text" id="campaignInput" placeholder="ex: fb_ads_promo_vendas" value="fb_campanha_01">
-                            </div>
-
-                            <div class="link-output-box">
-                                <span class="link-label">Link Pró-Rastreável para Anúncio:</span>
-                                <div class="copy-input-group">
-                                    <input type="text" id="generatedLinkOutput" readonly value="t.me/SeuBot?start=fb_campanha_01">
-                                    <button class="btn btn-primary" id="btnCopyLink">
-                                        <i class="fa-solid fa-copy"></i> Copiar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                <div class="glass-panel">
+                    <div class="panel-header">
+                        <h3><i class="fa-solid fa-link"></i> Gerador de Links para Facebook Ads</h3>
                     </div>
+                    <div class="custom-form">
+                        <p class="panel-sub">Gere links com parâmetros de deep linking para rastrear de qual anúncio cada lead veio.</p>
 
-                    <!-- Token Manager -->
-                    <div class="glass-panel">
-                        <div class="panel-header">
-                            <h3><i class="fa-solid fa-key"></i> Configuração do Telegram Bot Token</h3>
+                        <div class="form-group mt-3">
+                            <label for="linkTargetBotSelect">Selecione o Bot do Telegram</label>
+                            <select id="linkTargetBotSelect" class="filter-select">
+                                <option value="">Nenhum bot conectado</option>
+                            </select>
                         </div>
-                        <form id="tokenForm" class="custom-form">
-                            <p class="panel-sub">Insira o Token fornecido pelo <strong>@BotFather</strong> no Telegram.</p>
 
-                            <div class="form-group mt-3">
-                                <label for="botTokenInput">HTTP API Token</label>
-                                <input type="password" id="botTokenInput" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
-                            </div>
+                        <div class="form-group">
+                            <label for="campaignInput">Nome da Campanha de Anúncio (sem espaços ou acentos)</label>
+                            <input type="text" id="campaignInput" placeholder="ex: fb_ads_promo_vendas" value="fb_campanha_01">
+                        </div>
 
-                            <div class="button-group">
-                                <button type="button" class="btn btn-secondary" id="btnTestToken">
-                                    <i class="fa-solid fa-vial"></i> Testar Token
-                                </button>
-                                <button type="submit" class="btn btn-primary" id="btnSaveToken">
-                                    <i class="fa-solid fa-floppy-disk"></i> Salvar Token
+                        <div class="link-output-box">
+                            <span class="link-label">Link Pró-Rastreável para o Botão do Anúncio:</span>
+                            <div class="copy-input-group">
+                                <input type="text" id="generatedLinkOutput" readonly value="https://t.me/SeuBot?start=fb_campanha_01">
+                                <button class="btn btn-primary" id="btnCopyLink">
+                                    <i class="fa-solid fa-copy"></i> Copiar Link
                                 </button>
                             </div>
-                            <div id="tokenTestResult" class="test-result-box mt-3"></div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -330,6 +372,12 @@
             <form id="stepForm" class="custom-form">
                 <input type="hidden" id="stepId">
                 <div class="form-group">
+                    <label for="stepBotScope">Escopo do Funil</label>
+                    <select id="stepBotScope" class="filter-select">
+                        <option value="0">🌐 Funil Global Compartilhado</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="stepNumber">Número do Passo</label>
                     <input type="number" id="stepNumber" min="1" required>
                 </div>
@@ -339,7 +387,7 @@
                 </div>
                 <div class="form-group">
                     <label for="stepMessage">Texto da Mensagem</label>
-                    <textarea id="stepMessage" rows="5" required placeholder="Escreva o texto da mensagem. Use {first_name} para incluir o nome do lead."></textarea>
+                    <textarea id="stepMessage" rows="5" required placeholder="Escreva a mensagem. Use {first_name} para personalizar."></textarea>
                 </div>
                 <div class="form-group">
                     <label for="stepMedia">URL da Mídia / Imagem (Opcional)</label>
@@ -347,9 +395,7 @@
                 </div>
                 <div class="form-group">
                     <label>Botões Inline do Telegram</label>
-                    <div id="buttonsEditorContainer" class="buttons-editor-list">
-                        <!-- Dynamically added button fields -->
-                    </div>
+                    <div id="buttonsEditorContainer" class="buttons-editor-list"></div>
                     <button type="button" class="btn btn-secondary btn-sm mt-2" id="btnAddButtonRow">
                         <i class="fa-solid fa-plus"></i> Adicionar Botão
                     </button>

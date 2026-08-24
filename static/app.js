@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Current state
-    let botInfo = null;
+    // Current State
+    let currentBotId = 0; // 0 = Todos os Bots
+    let allBots = [];
     let allLeads = [];
 
     // Tab Navigation
@@ -19,13 +20,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
             updateHeaderTitle(targetTab);
 
-            // Fetch data based on tab
             if (targetTab === "tab-dashboard") loadDashboardStats();
+            if (targetTab === "tab-my-bots") loadMyBots();
             if (targetTab === "tab-funnels") loadFunnelSteps();
             if (targetTab === "tab-broadcast") loadBroadcasts();
             if (targetTab === "tab-leads") loadLeads();
             if (targetTab === "tab-settings") updateGeneratedLink();
         });
+    });
+
+    // Global Bot Selector in Sidebar
+    const globalBotSelector = document.getElementById("globalBotSelector");
+    globalBotSelector.addEventListener("change", (e) => {
+        currentBotId = parseInt(e.target.value) || 0;
+        loadDashboardStats();
+        loadFunnelSteps();
+        loadLeads();
     });
 
     function updateHeaderTitle(tabId) {
@@ -34,29 +44,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
         switch (tabId) {
             case "tab-dashboard":
-                titleEl.textContent = "Dashboard de Desempenho";
-                subEl.textContent = "Acompanhe seus leads de tráfego pago e automações em tempo real";
+                titleEl.textContent = "Dashboard de Desempenho Multi-Bot";
+                subEl.textContent = "Acompanhe a captura de leads e automações em tempo real";
+                break;
+            case "tab-my-bots":
+                titleEl.textContent = "Gerenciador de Bots Telegram";
+                subEl.textContent = "Conecte e monitore múltiplos bots rodando simultaneamente";
                 break;
             case "tab-funnels":
-                titleEl.textContent = "Construtor de Funis de Vendas";
-                subEl.textContent = "Gerencie os passos e mensagens automatizadas que os leads recebem";
+                titleEl.textContent = "Editor de Funis de Vendas";
+                subEl.textContent = "Configure funis universais ou exclusivos por bot";
                 break;
             case "tab-broadcast":
                 titleEl.textContent = "Disparo em Massa (Broadcast)";
-                subEl.textContent = "Envie campanhas para a sua base de leads com segurança";
+                subEl.textContent = "Envie campanhas para leads de um bot específico ou para todos";
                 break;
             case "tab-leads":
                 titleEl.textContent = "Base de Leads Capturados";
-                subEl.textContent = "Visualize e filtre todos os leads que entraram pelos seus anúncios";
+                subEl.textContent = "Filtre e analise leads agrupados por bot e campanha de anúncio";
                 break;
             case "tab-settings":
-                titleEl.textContent = "Gerador de Links & Token";
-                subEl.textContent = "Crie links rastreáveis para o Facebook Ads e gerencie o Bot Token";
+                titleEl.textContent = "Gerador de Links de Anúncio";
+                subEl.textContent = "Crie links rastreáveis para botões de anúncio do Facebook/Instagram";
                 break;
         }
     }
 
-    // Toast Notifications
     function showToast(message, type = "info") {
         const container = document.getElementById("toastContainer");
         const toast = document.createElement("div");
@@ -64,48 +77,29 @@ document.addEventListener("DOMContentLoaded", () => {
         toast.textContent = message;
         container.appendChild(toast);
 
-        setTimeout(() => {
-            toast.remove();
-        }, 3500);
+        setTimeout(() => toast.remove(), 3500);
     }
 
-    // 1. DASHBOARD STATS
+    // 1. DASHBOARD STATS & BOT SYNC
     async function loadDashboardStats() {
         try {
-            const res = await fetch("/api/stats");
+            const res = await fetch(`/api/stats?bot_id=${currentBotId}`);
             const data = await res.json();
-
-            // Status Card
-            const statusDot = document.getElementById("statusDot");
-            const statusTitle = document.getElementById("botStatusTitle");
-            const statusSub = document.getElementById("botStatusSub");
-
-            if (data.is_token_set && data.bot_info) {
-                botInfo = data.bot_info;
-                statusDot.className = "status-indicator green";
-                statusTitle.textContent = `@${data.bot_info.username}`;
-                statusSub.textContent = "Bot Conectado & Polling";
-            } else {
-                statusDot.className = "status-indicator yellow";
-                statusTitle.textContent = "Pendente";
-                statusSub.textContent = "Insira o Bot Token";
-            }
-
-            // Summary Values
             const summary = data.summary || {};
+
+            allBots = summary.bots || [];
+
+            // Update Summary Counters
+            document.getElementById("valTotalBots").textContent = summary.total_bots || 0;
             document.getElementById("valTotalLeads").textContent = summary.total_leads || 0;
             document.getElementById("valLeadsToday").textContent = summary.leads_today || 0;
-            document.getElementById("valTotalSteps").textContent = summary.total_steps || 0;
             document.getElementById("valTotalBroadcasts").textContent = summary.total_broadcasts || 0;
+
+            // Populate Bot Selectors everywhere
+            syncBotSelectors(allBots);
 
             // Campaigns List
             const campaignContainer = document.getElementById("campaignsContainer");
-            const campaignSelects = [document.getElementById("broadcastFilter"), document.getElementById("leadCampaignFilter")];
-
-            campaignSelects.forEach(sel => {
-                sel.innerHTML = `<option value="all">🌐 Todas as Campanhas</option>`;
-            });
-
             if (summary.campaigns && summary.campaigns.length > 0) {
                 campaignContainer.innerHTML = summary.campaigns.map(c => `
                     <div class="campaign-item">
@@ -113,25 +107,26 @@ document.addEventListener("DOMContentLoaded", () => {
                         <span class="campaign-count">${c.count} leads</span>
                     </div>
                 `).join("");
-
-                summary.campaigns.forEach(c => {
-                    campaignSelects.forEach(sel => {
-                        const opt = document.createElement("option");
-                        opt.value = c.campaign_source;
-                        opt.textContent = `🎯 Campanha: ${c.campaign_source} (${c.count} leads)`;
-                        sel.appendChild(opt);
-                    });
-                });
             } else {
-                campaignContainer.innerHTML = `
-                    <div class="empty-state">
-                        <p>Nenhuma campanha registrada ainda. Crie um link de anúncio para rastrear!</p>
-                    </div>
-                `;
+                campaignContainer.innerHTML = `<div class="empty-state"><p>Nenhuma campanha de tráfego iniciada.</p></div>`;
             }
 
-            // Recent leads
-            loadRecentLeads();
+            // Dashboard Bots Overview
+            const dashBotsContainer = document.getElementById("dashBotsContainer");
+            if (allBots.length > 0) {
+                dashBotsContainer.innerHTML = allBots.map(b => `
+                    <div class="campaign-item">
+                        <div>
+                            <strong>${b.name}</strong>
+                            <span style="font-size: 11px; color: #06b6d4; display: block;">@${b.username}</span>
+                        </div>
+                        <span class="badge ${b.status === 'active' ? 'green' : 'yellow'}">${b.status}</span>
+                    </div>
+                `).join("");
+            } else {
+                dashBotsContainer.innerHTML = `<div class="empty-state"><p>Nenhum bot conectado. Vá na aba "Meus Bots" para adicionar!</p></div>`;
+            }
+
             updateGeneratedLink();
 
         } catch (err) {
@@ -139,40 +134,194 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function loadRecentLeads() {
-        try {
-            const res = await fetch("/api/leads");
-            const data = await res.json();
-            allLeads = data.leads || [];
+    function syncBotSelectors(bots) {
+        // Global Selector in Sidebar
+        const prevGlobalVal = globalBotSelector.value;
+        globalBotSelector.innerHTML = `<option value="0">🌐 Todos os Bots (${bots.length})</option>`;
+        bots.forEach(b => {
+            const opt = document.createElement("option");
+            opt.value = b.id;
+            opt.textContent = `🤖 ${b.name} (@${b.username})`;
+            globalBotSelector.appendChild(opt);
+        });
+        globalBotSelector.value = prevGlobalVal || "0";
 
-            const container = document.getElementById("recentLeadsContainer");
-            if (allLeads.length > 0) {
-                container.innerHTML = allLeads.slice(0, 5).map(l => `
-                    <div class="campaign-item">
-                        <div>
-                            <strong>${l.first_name || 'Lead'} ${l.last_name || ''}</strong>
-                            <span style="font-size: 11px; color: #94a3b8; display: block;">@${l.username || 'sem_username'}</span>
-                        </div>
-                        <span class="badge">${l.campaign_source}</span>
+        // Funnel Scope Selector
+        const funnelScope = document.getElementById("funnelScopeSelect");
+        const stepScope = document.getElementById("stepBotScope");
+        const linkBotSelect = document.getElementById("linkTargetBotSelect");
+        const leadBotSelect = document.getElementById("leadBotFilter");
+        const broadcastBotSelect = document.getElementById("broadcastTargetBot");
+
+        [funnelScope, stepScope].forEach(sel => {
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = `<option value="0">🌐 Funil Global (Usado por todos os bots por padrão)</option>`;
+            bots.forEach(b => {
+                const opt = document.createElement("option");
+                opt.value = b.id;
+                opt.textContent = `🎯 Funil Exclusivo para @${b.username}`;
+                sel.appendChild(opt);
+            });
+            sel.value = currentVal || "0";
+        });
+
+        // Link Generator Bot Selector
+        if (linkBotSelect) {
+            linkBotSelect.innerHTML = bots.length > 0 ? "" : `<option value="">Nenhum bot conectado</option>`;
+            bots.forEach(b => {
+                const opt = document.createElement("option");
+                opt.value = b.username;
+                opt.textContent = `🤖 @${b.username} (${b.name})`;
+                linkBotSelect.appendChild(opt);
+            });
+        }
+
+        // Leads & Broadcast Bot Filters
+        [leadBotSelect, broadcastBotSelect].forEach(sel => {
+            if (!sel) return;
+            const cur = sel.value;
+            sel.innerHTML = `<option value="0">🌐 Todos os Bots</option>`;
+            bots.forEach(b => {
+                const opt = document.createElement("option");
+                opt.value = b.id;
+                opt.textContent = `🤖 @${b.username}`;
+                sel.appendChild(opt);
+            });
+            sel.value = cur || "0";
+        });
+    }
+
+    // 2. MEUS BOTS TAB
+    async function loadMyBots() {
+        try {
+            const res = await fetch("/api/bots");
+            const data = await res.json();
+            allBots = data.bots || [];
+
+            const container = document.getElementById("myBotsListContainer");
+            if (allBots.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fa-solid fa-robot"></i>
+                        <p>Nenhum bot conectado ainda. Cole o Token do BotFather ao lado para conectar seu primeiro bot!</p>
                     </div>
-                `).join("");
+                `;
+                return;
             }
+
+            container.innerHTML = allBots.map(b => `
+                <div class="bot-card-item">
+                    <div class="bot-card-info">
+                        <div class="bot-avatar"><i class="fa-solid fa-robot"></i></div>
+                        <div class="bot-details">
+                            <h4>${b.name}</h4>
+                            <span>@${b.username}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="badge ${b.status === 'active' ? 'green' : 'yellow'}">${b.status}</span>
+                        <button class="btn btn-secondary btn-sm delete-bot-btn" data-id="${b.id}">
+                            <i class="fa-solid fa-trash" style="color: #f43f5e;"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join("");
+
+            document.querySelectorAll(".delete-bot-btn").forEach(btn => {
+                btn.addEventListener("click", async () => {
+                    const id = btn.getAttribute("data-id");
+                    if (confirm("Tem certeza que deseja remover este bot? Ele deixará de responder mensagens.")) {
+                        await fetch(`/api/bots/${id}`, { method: "DELETE" });
+                        showToast("Bot desconectado com sucesso!", "success");
+                        loadMyBots();
+                        loadDashboardStats();
+                    }
+                });
+            });
+
         } catch (err) {
-            console.error("Erro ao carregar leads recentes:", err);
+            console.error("Erro ao carregar bots:", err);
         }
     }
 
-    // 2. FUNNEL STEPS BUILDER
-    async function loadFunnelSteps() {
+    // ADD NEW BOT FORM
+    const addBotForm = document.getElementById("addBotForm");
+    const btnTestNewBotToken = document.getElementById("btnTestNewBotToken");
+    const newBotTokenInput = document.getElementById("newBotTokenInput");
+    const newBotTestResult = document.getElementById("newBotTestResult");
+
+    btnTestNewBotToken.addEventListener("click", async () => {
+        const token = newBotTokenInput.value.trim();
+        if (!token) return showToast("Insira o token do bot", "error");
+
+        newBotTestResult.innerHTML = `<span><i class="fa-solid fa-spinner fa-spin"></i> Testando token...</span>`;
+
         try {
-            const res = await fetch("/api/funnel");
+            const res = await fetch("/api/test-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+            });
+            const data = await res.json();
+            if (data.valid) {
+                newBotTestResult.innerHTML = `<span style="color: #10b981; font-weight:600;"><i class="fa-solid fa-check-circle"></i> Token Válido! Bot: ${data.bot_name} (@${data.username})</span>`;
+            } else {
+                newBotTestResult.innerHTML = `<span style="color: #f43f5e; font-weight:600;"><i class="fa-solid fa-times-circle"></i> Token Inválido: ${data.error}</span>`;
+            }
+        } catch (err) {
+            newBotTestResult.innerHTML = `<span style="color: #f43f5e;">Erro na verificação.</span>`;
+        }
+    });
+
+    addBotForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const token = newBotTokenInput.value.trim();
+        if (!token) return;
+
+        try {
+            const res = await fetch("/api/bots", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast(`🤖 ${data.message}`, "success");
+                addBotForm.reset();
+                newBotTestResult.innerHTML = "";
+                loadMyBots();
+                loadDashboardStats();
+            }
+        } catch (err) {
+            showToast("Erro ao conectar novo bot", "error");
+        }
+    });
+
+    // 3. FUNNEL STEPS BUILDER
+    const funnelScopeSelect = document.getElementById("funnelScopeSelect");
+    funnelScopeSelect.addEventListener("change", () => loadFunnelSteps());
+
+    async function loadFunnelSteps() {
+        const scopeBotId = parseInt(funnelScopeSelect.value) || 0;
+        const subTitle = document.getElementById("funnelScopeSubtitle");
+        
+        if (scopeBotId === 0) {
+            subTitle.innerHTML = `Configurando: <strong>Funil Global Compartilhado (Usado por todos os bots)</strong>`;
+        } else {
+            const selectedBot = allBots.find(b => b.id === scopeBotId);
+            subTitle.innerHTML = `Configurando: <strong>Funil Exclusivo para @${selectedBot ? selectedBot.username : 'Bot'}</strong>`;
+        }
+
+        try {
+            const res = await fetch(`/api/funnel?bot_id=${scopeBotId}`);
             const data = await res.json();
             const container = document.getElementById("funnelStepsList");
 
             if (!data.steps || data.steps.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <p>Nenhum passo no funil ainda. Clique em "Novo Passo" para começar!</p>
+                        <p>Nenhum passo configurado para este contexto ainda. Clique em "Novo Passo" para adicionar!</p>
                     </div>
                 `;
                 return;
@@ -185,7 +334,6 @@ document.addEventListener("DOMContentLoaded", () => {
                         <h4>${step.title}</h4>
                         <p>${step.message_text}</p>
                         ${step.media_url ? `<span class="badge" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;"><i class="fa-solid fa-image"></i> Mídia: ${step.media_url}</span>` : ''}
-                        
                         <div class="step-buttons-preview">
                             ${(step.buttons || []).map(b => `
                                 <span class="preview-btn">
@@ -205,7 +353,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
             `).join("");
 
-            // Event listeners for Edit and Delete
             document.querySelectorAll(".edit-step-btn").forEach(btn => {
                 btn.addEventListener("click", () => {
                     const stepData = JSON.parse(btn.getAttribute("data-step"));
@@ -216,9 +363,9 @@ document.addEventListener("DOMContentLoaded", () => {
             document.querySelectorAll(".delete-step-btn").forEach(btn => {
                 btn.addEventListener("click", async () => {
                     const id = btn.getAttribute("data-id");
-                    if (confirm("Tem certeza que deseja remover este passo do funil?")) {
+                    if (confirm("Remover este passo do funil?")) {
                         await fetch(`/api/funnel/${id}`, { method: "DELETE" });
-                        showToast("Passo removido com sucesso!", "success");
+                        showToast("Passo removido!", "success");
                         loadFunnelSteps();
                     }
                 });
@@ -229,7 +376,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // MODAL STEP EDITOR
+    // STEP MODAL LOGIC
     const stepModal = document.getElementById("stepModal");
     const btnAddStepModal = document.getElementById("btnAddStepModal");
     const btnCloseStepModal = document.getElementById("btnCloseStepModal");
@@ -242,13 +389,13 @@ document.addEventListener("DOMContentLoaded", () => {
     btnCancelStepModal.addEventListener("click", () => closeModal());
 
     function openStepModal(step = null) {
+        const scopeBotId = parseInt(funnelScopeSelect.value) || 0;
         document.getElementById("stepId").value = step ? step.id : "";
+        document.getElementById("stepBotScope").value = step ? step.bot_id : scopeBotId;
         document.getElementById("stepNumber").value = step ? step.step_number : 1;
         document.getElementById("stepTitle").value = step ? step.title : "";
         document.getElementById("stepMessage").value = step ? step.message_text : "";
         document.getElementById("stepMedia").value = step ? step.media_url || "" : "";
-        
-        document.getElementById("modalStepTitle").textContent = step ? `Editar Passo ${step.step_number}` : "Adicionar Novo Passo ao Funil";
 
         buttonsContainer.innerHTML = "";
         if (step && step.buttons && step.buttons.length > 0) {
@@ -260,9 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
         stepModal.classList.add("active");
     }
 
-    function closeModal() {
-        stepModal.classList.remove("active");
-    }
+    function closeModal() { stepModal.classList.remove("active"); }
 
     function addButtonRow(text = "", url = "", callback = "") {
         const row = document.createElement("div");
@@ -276,16 +421,13 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="btn btn-secondary btn-sm remove-btn-row">&times;</button>
         `;
         buttonsContainer.appendChild(row);
-
         row.querySelector(".remove-btn-row").addEventListener("click", () => row.remove());
     }
 
     btnAddButtonRow.addEventListener("click", () => addButtonRow());
 
-    // Submit Step Form
     document.getElementById("stepForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-
         const buttons = [];
         document.querySelectorAll(".button-row").forEach(row => {
             const txt = row.querySelector(".btn-text-input").value.trim();
@@ -300,6 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const payload = {
+            bot_id: parseInt(document.getElementById("stepBotScope").value) || 0,
             step_number: parseInt(document.getElementById("stepNumber").value),
             title: document.getElementById("stepTitle").value,
             message_text: document.getElementById("stepMessage").value,
@@ -316,7 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             const data = await res.json();
             if (data.success) {
-                showToast("Passo do funil salvo com sucesso!", "success");
+                showToast("Passo do funil salvo!", "success");
                 closeModal();
                 loadFunnelSteps();
             }
@@ -325,12 +468,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 3. BROADCAST FORM & HISTORY
-    const broadcastForm = document.getElementById("broadcastForm");
-    broadcastForm.addEventListener("submit", async (e) => {
+    // 4. BROADCAST
+    document.getElementById("broadcastForm").addEventListener("submit", async (e) => {
         e.preventDefault();
-
         const payload = {
+            bot_id: parseInt(document.getElementById("broadcastTargetBot").value) || 0,
             title: document.getElementById("broadcastTitle").value,
             message_text: document.getElementById("broadcastMessage").value,
             filter_campaign: document.getElementById("broadcastFilter").value
@@ -343,14 +485,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
-
             if (data.success) {
-                showToast("⚡ Disparo iniciado com sucesso!", "success");
-                broadcastForm.reset();
+                showToast("⚡ Disparo em massa iniciado!", "success");
+                document.getElementById("broadcastForm").reset();
                 loadBroadcasts();
             }
         } catch (err) {
-            showToast("Erro ao disparar mensagem", "error");
+            showToast("Erro ao iniciar disparo", "error");
         }
     });
 
@@ -361,7 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const container = document.getElementById("broadcastHistoryContainer");
 
             if (!data.broadcasts || data.broadcasts.length === 0) {
-                container.innerHTML = `<div class="empty-state"><p>Nenhum disparo realizado até agora.</p></div>`;
+                container.innerHTML = `<div class="empty-state"><p>Nenhum disparo realizado até o momento.</p></div>`;
                 return;
             }
 
@@ -369,36 +510,43 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="campaign-item">
                     <div>
                         <strong>${b.title}</strong>
-                        <span style="font-size: 11px; color: #94a3b8; display: block;">Segmento: ${b.filter_campaign}</span>
+                        <span style="font-size: 11px; color: #94a3b8; display: block;">Escopo Bot #${b.bot_id || 'Todos'} &bull; Campanha: ${b.filter_campaign}</span>
                     </div>
                     <span class="badge ${b.status === 'completed' ? 'green' : 'yellow'}">
                         ${b.sent_count}/${b.total_target} Enviados (${b.status})
                     </span>
                 </div>
             `).join("");
-
         } catch (err) {
             console.error("Erro ao carregar histórico de disparos:", err);
         }
     }
 
-    // 4. LEADS TABLE & FILTER
+    // 5. LEADS TABLE
+    const leadBotFilter = document.getElementById("leadBotFilter");
+    const leadCampaignFilter = document.getElementById("leadCampaignFilter");
+    const leadSearchInput = document.getElementById("leadSearchInput");
+
+    leadBotFilter.addEventListener("change", loadLeads);
+    leadCampaignFilter.addEventListener("change", loadLeads);
+    leadSearchInput.addEventListener("input", () => renderLeadsTable(allLeads));
+
     async function loadLeads() {
         try {
-            const campaignFilter = document.getElementById("leadCampaignFilter").value;
-            const res = await fetch(`/api/leads?campaign=${campaignFilter}`);
+            const bId = leadBotFilter.value || 0;
+            const camp = leadCampaignFilter.value || "all";
+            const res = await fetch(`/api/leads?bot_id=${bId}&campaign=${camp}`);
             const data = await res.json();
             allLeads = data.leads || [];
-
             renderLeadsTable(allLeads);
         } catch (err) {
-            console.error("Erro ao carregar lista de leads:", err);
+            console.error("Erro ao carregar leads:", err);
         }
     }
 
     function renderLeadsTable(leads) {
         const tbody = document.getElementById("leadsTableBody");
-        const search = document.getElementById("leadSearchInput").value.toLowerCase();
+        const search = leadSearchInput.value.toLowerCase();
 
         const filtered = leads.filter(l => 
             (l.first_name && l.first_name.toLowerCase().includes(search)) ||
@@ -406,12 +554,13 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Nenhum lead encontrado.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4">Nenhum lead encontrado.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = filtered.map(l => `
             <tr>
+                <td><span class="badge cyan">@${l.bot_username || 'bot'}</span></td>
                 <td><code>${l.telegram_id}</code></td>
                 <td><strong>${l.first_name || ''} ${l.last_name || ''}</strong></td>
                 <td>${l.username ? `@${l.username}` : '<span style="color:#64748b;">-</span>'}</td>
@@ -422,20 +571,19 @@ document.addEventListener("DOMContentLoaded", () => {
         `).join("");
     }
 
-    document.getElementById("leadSearchInput").addEventListener("input", () => renderLeadsTable(allLeads));
-    document.getElementById("leadCampaignFilter").addEventListener("change", loadLeads);
-
-    // 5. DEEP LINK GENERATOR & TOKEN SETTINGS
+    // 6. LINK GENERATOR
+    const linkBotSelect = document.getElementById("linkTargetBotSelect");
     const campaignInput = document.getElementById("campaignInput");
     const linkOutput = document.getElementById("generatedLinkOutput");
     const btnCopyLink = document.getElementById("btnCopyLink");
 
     function updateGeneratedLink() {
         const campaign = campaignInput.value.trim() || "fb_campanha_01";
-        const botUsername = botInfo ? botInfo.username : "SeuBotUsername";
+        const botUsername = linkBotSelect.value || (allBots.length > 0 ? allBots[0].username : "SeuBotUsername");
         linkOutput.value = `https://t.me/${botUsername}?start=${campaign}`;
     }
 
+    linkBotSelect.addEventListener("change", updateGeneratedLink);
     campaignInput.addEventListener("input", updateGeneratedLink);
 
     btnCopyLink.addEventListener("click", () => {
@@ -444,65 +592,16 @@ document.addEventListener("DOMContentLoaded", () => {
         showToast("📋 Link do Anúncio copiado!", "success");
     });
 
-    // TOKEN TESTING & SAVING
-    const btnTestToken = document.getElementById("btnTestToken");
-    const tokenInput = document.getElementById("botTokenInput");
-    const testResultBox = document.getElementById("tokenTestResult");
-
-    btnTestToken.addEventListener("click", async () => {
-        const token = tokenInput.value.trim();
-        if (!token) {
-            showToast("Insira um token para testar", "error");
-            return;
-        }
-
-        testResultBox.innerHTML = `<span><i class="fa-solid fa-spinner fa-spin"></i> Testando token na API do Telegram...</span>`;
-
-        try {
-            const res = await fetch("/api/test-token", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token })
-            });
-            const data = await res.json();
-
-            if (data.valid) {
-                testResultBox.innerHTML = `
-                    <div style="color: #10b981; font-weight: 600;">
-                        <i class="fa-solid fa-circle-check"></i> Token Válido! Bot: ${data.bot_name} (@${data.username})
-                    </div>
-                `;
-            } else {
-                testResultBox.innerHTML = `
-                    <div style="color: #f43f5e; font-weight: 600;">
-                        <i class="fa-solid fa-circle-xmark"></i> Token Inválido: ${data.error}
-                    </div>
-                `;
-            }
-        } catch (err) {
-            testResultBox.innerHTML = `<span style="color: #f43f5e;">Erro de conexão com o servidor.</span>`;
-        }
+    // Navigation buttons inside cards
+    document.getElementById("btnQuickAddBot").addEventListener("click", () => {
+        document.getElementById("btn-tab-my-bots").click();
     });
-
-    document.getElementById("tokenForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const token = tokenInput.value.trim();
-        if (!token) return;
-
-        try {
-            const res = await fetch("/api/settings/token", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token })
-            });
-            const data = await res.json();
-            if (data.success) {
-                showToast("✅ Token salvo no arquivo .env!", "success");
-                loadDashboardStats();
-            }
-        } catch (err) {
-            showToast("Erro ao salvar token", "error");
-        }
+    document.getElementById("btnGoToBots").addEventListener("click", () => {
+        document.getElementById("btn-tab-my-bots").click();
+    });
+    document.getElementById("btnRefreshData").addEventListener("click", () => {
+        loadDashboardStats();
+        showToast("Dados atualizados!", "info");
     });
 
     // Initial Load
